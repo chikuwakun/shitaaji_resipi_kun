@@ -186,7 +186,7 @@ input:focus { border-color: #aaa; background: #fff; }
   <div class="settings-saved" id="settings-saved">✓ 保存しました</div>
 </div>
 
-<div class="version">v2.2 (2.5-flash)</div>
+<div class="version">v2.3 (2.5-flash)</div>
 
 <script>
 const KEY_API = 'rdc_gemini_api_key';
@@ -277,15 +277,18 @@ async function runPipeline() {
 }
 
 async function fetchPageContent(url) {
-  // 直接取得を試み、CORS で失敗したらプロキシ経由
-  try {
-    const res = await fetch(url);
-    if (res.ok) return await res.text();
-  } catch (_) {}
-  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-  const res = await fetch(proxyUrl);
-  if (!res.ok) throw new Error('ページの取得に失敗しました（CORS / プロキシエラー）');
-  return await res.text();
+  const proxies = [
+    u => 'https://corsproxy.io/?' + encodeURIComponent(u),
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+  ];
+  for (const makeUrl of proxies) {
+    try {
+      const res = await fetch(makeUrl(url));
+      if (res.ok) return await res.text();
+    } catch (_) {}
+  }
+  throw new Error('ページの取得に失敗しました。CORSプロキシが全て利用できません。');
 }
 
 function extractContent(html) {
