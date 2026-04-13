@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>レシピ → Discord (Gemini版)</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -136,6 +139,13 @@ input:focus { border-color: #aaa; background: #fff; }
   display: none;
   text-align: center;
 }
+.version {
+  position: fixed;
+  bottom: 8px;
+  right: 12px;
+  font-size: 10px;
+  color: #ccc;
+}
 </style>
 </head>
 <body>
@@ -175,6 +185,8 @@ input:focus { border-color: #aaa; background: #fff; }
   </div>
   <div class="settings-saved" id="settings-saved">✓ 保存しました</div>
 </div>
+
+<div class="version">v2.0 (2.5-flash)</div>
 
 <script>
 const KEY_API = 'rdc_gemini_api_key';
@@ -299,7 +311,7 @@ textのフォーマット（必ず1人前の分量に換算してください）
 
 参考URL: ${url}`;
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
