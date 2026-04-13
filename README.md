@@ -10,9 +10,11 @@
 (初回起動時のみ)
 - webページにアクセス(https://chikuwakun.github.io/shitaaji_resipi_kun/)
 - gemini APIキーとwebhook APIキーを設定
-
+ここからは毎回
 - discordに投げたいURLを入れる
 - 解析していい感じになる
+
+　localstorageに保存するので、APIキーはいつも使わなくていいです。ホーム画面とかに追加して使うのを想定
 
 # レシピのフォーマットについて
 以下のフォーマットで出力されるようになっています。
