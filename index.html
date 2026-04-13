@@ -186,7 +186,7 @@ input:focus { border-color: #aaa; background: #fff; }
   <div class="settings-saved" id="settings-saved">✓ 保存しました</div>
 </div>
 
-<div class="version">v2.0 (2.5-flash)</div>
+<div class="version">v2.1 (2.5-flash)</div>
 
 <script>
 const KEY_API = 'rdc_gemini_api_key';
@@ -324,8 +324,7 @@ textのフォーマット（必ず1人前の分量に換算してください）
       }],
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 2048,
-        responseMimeType: "application/json"
+        maxOutputTokens: 2048
       },
       tools: [{
         googleSearch: {}
