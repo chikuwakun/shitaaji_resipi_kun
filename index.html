@@ -186,7 +186,7 @@ input:focus { border-color: #aaa; background: #fff; }
   <div class="settings-saved" id="settings-saved">✓ 保存しました</div>
 </div>
 
-<div class="version">v3.0 (urlContext)</div>
+<div class="version">v3.1 (urlContext+schema)</div>
 
 <script>
 const KEY_API = 'rdc_gemini_api_key';
@@ -278,17 +278,11 @@ async function runPipeline() {
 
 async function fetchAndFormat(url, apiKey) {
   const prompt = `以下のURLのレシピページの内容を読み取り、指定されたフォーマットで整形してください。
-必ず指定URLの実際の内容に基づいて回答してください。URLを読み取れない場合は「読み取れませんでした」と回答してください。
+必ず指定URLの実際の内容に基づいて回答してください。URLを読み取れない場合はtextに「読み取れませんでした」と入れてください。
 
 対象URL: ${url}
 
-以下の形式のJSONのみを返してください（説明文は不要）:
-{
-  "thumbnail": "ページのog:imageまたはメイン画像のURL（取得できない場合はnull）",
-  "text": "以下のフォーマットで整形したレシピテキスト"
-}
-
-textのフォーマット（必ず1人前の分量に換算してください）:
+レスポンスのtextフィールドのフォーマット（必ず1人前の分量に換算してください）:
 【名前】
 （レシピの料理名）
 
@@ -324,7 +318,16 @@ textのフォーマット（必ず1人前の分量に換算してください）
       }],
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 2048
+        maxOutputTokens: 2048,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            thumbnail: { type: "string", description: "ページのog:imageまたはメイン画像のURL。取得できない場合はnull", nullable: true },
+            text: { type: "string", description: "整形されたレシピテキスト" }
+          },
+          required: ["text"]
+        }
       },
       tools: [{
         urlContext: {}
