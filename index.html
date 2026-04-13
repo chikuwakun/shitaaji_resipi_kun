@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>レシピ → Discord</title>
+<title>レシピ → Discord (Gemini版)</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -166,8 +166,8 @@ input:focus { border-color: #aaa; background: #fff; }
 <!-- 設定画面 -->
 <div class="screen" id="settings-screen">
   <div class="card">
-    <label for="s-api-key">Anthropic APIキー</label>
-    <input type="password" id="s-api-key" placeholder="sk-ant-..." autocomplete="off" />
+    <label for="s-api-key">Gemini APIキー</label>
+    <input type="password" id="s-api-key" placeholder="AIzaSy..." autocomplete="off" />
     <label for="s-webhook">Discord Webhook URL</label>
     <input type="url" id="s-webhook" placeholder="https://discord.com/api/webhooks/..." autocomplete="off" />
     <button class="btn btn-primary" onclick="saveSettings()">保存する</button>
@@ -177,7 +177,7 @@ input:focus { border-color: #aaa; background: #fff; }
 </div>
 
 <script>
-const KEY_API = 'rdc_api_key';
+const KEY_API = 'rdc_gemini_api_key';
 const KEY_WH  = 'rdc_webhook';
 
 function init() {
@@ -265,50 +265,59 @@ async function runPipeline() {
 }
 
 async function fetchAndFormat(url, apiKey) {
-  const prompt = `以下のレシピURLのページ内容をweb_searchで取得し、JSONのみを返してください。説明文やマークダウン記法は不要です。
+  const prompt = `以下のレシピURLのページから情報を取得して、指定されたフォーマットで整形してください。
+URLにアクセスしてページの内容を取得し、レシピ情報を解析してください。
 
-JSON形式:
+対象URL: ${url}
+
+以下の形式のJSONのみを返してください（説明文は不要）:
 {
-  "thumbnail": "ページのog:imageまたはサムネイル画像URL（なければnull）",
-  "text": "下記フォーマットで整形したテキスト（1人前換算）"
+  "thumbnail": "ページのog:imageまたはメイン画像のURL（取得できない場合はnull）",
+  "text": "以下のフォーマットで整形したレシピテキスト"
 }
 
-textのフォーマット:
+textのフォーマット（必ず1人前の分量に換算してください）:
 【名前】
-（レシピ名）
+（レシピの料理名）
 
 【必要なもの（一人前）】
 
 ＜食材＞
 ・食材名 分量
-...
+・食材名 分量
+（以下必要な分だけ）
 
 ＜調味料＞
 ・調味料名 分量
-...
+・調味料名 分量
+（以下必要な分だけ）
 
 【調理過程】
-1. ...
-2. ...
-...
+1. （手順を簡潔に）
+2. （手順を簡潔に）
+（以下必要な分だけ）
 
-参考URL: ${url}
+参考URL: ${url}`;
 
-対象URL: ${url}`;
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
-      tools: [{ type: 'web_search_20250305', name: 'web_search' }],
-      messages: [{ role: 'user', content: prompt }]
+      contents: [{
+        parts: [{
+          text: prompt
+        }]
+      }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 2048,
+        responseMimeType: "application/json"
+      },
+      tools: [{
+        googleSearch: {}
+      }]
     })
   });
 
@@ -316,29 +325,58 @@ textのフォーマット:
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || `HTTP ${res.status}`);
   }
+
   const data = await res.json();
-  const textBlocks = data.content.filter(b => b.type === 'text').map(b => b.text).join('\n');
-  if (!textBlocks) throw new Error('解析結果が空でした。');
+
+  // Geminiのレスポンスから結果を取得
+  let resultText = '';
+  if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+    for (const part of data.candidates[0].content.parts) {
+      if (part.text) {
+        resultText += part.text;
+      }
+    }
+  }
+
+  if (!resultText) throw new Error('解析結果が空でした。');
+
   try {
-    return JSON.parse(textBlocks.replace(/```json|```/g, '').trim());
-  } catch {
-    return { text: textBlocks.trim(), thumbnail: null };
+    // JSONをパース
+    const parsed = JSON.parse(resultText.replace(/```json|```/g, '').trim());
+    return parsed;
+  } catch (e) {
+    // JSONパースに失敗した場合は、テキストのみを返す
+    return { text: resultText.trim(), thumbnail: null };
   }
 }
 
 async function sendToDiscord(webhookUrl, result) {
   const chunks = splitMessage(result.text, 2000);
+
   for (let i = 0; i < chunks.length; i++) {
     const payload = { content: chunks[i] };
+
+    // 最初のメッセージにサムネイル画像を添付
     if (i === 0 && result.thumbnail) {
-      payload.embeds = [{ image: { url: result.thumbnail } }];
+      payload.embeds = [{
+        image: {
+          url: result.thumbnail
+        }
+      }];
     }
+
     const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
+
     if (!res.ok) throw new Error(`Webhook ${res.status}`);
+
+    // レート制限を考慮して少し待機
+    if (i < chunks.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
 }
 
@@ -346,7 +384,10 @@ function splitMessage(text, limit) {
   if (text.length <= limit) return [text];
   const chunks = [];
   let i = 0;
-  while (i < text.length) { chunks.push(text.slice(i, i + limit)); i += limit; }
+  while (i < text.length) {
+    chunks.push(text.slice(i, i + limit));
+    i += limit;
+  }
   return chunks;
 }
 
