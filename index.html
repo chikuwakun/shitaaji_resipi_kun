@@ -141,7 +141,7 @@ input:focus { border-color: #aaa; background: #fff; }
 <body>
 
 <div class="header">
-  <h1 id="page-title">レシピ → Discord</h1>
+  <h1 id="page-title">レシピ → Discord (Gemini版)</h1>
   <button class="gear-btn" onclick="toggleSettings()">⚙</button>
 </div>
 
@@ -299,7 +299,7 @@ textのフォーマット（必ず1人前の分量に換算してください）
 
 参考URL: ${url}`;
 
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`, {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
