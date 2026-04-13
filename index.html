@@ -186,7 +186,7 @@ input:focus { border-color: #aaa; background: #fff; }
   <div class="settings-saved" id="settings-saved">✓ 保存しました</div>
 </div>
 
-<div class="version">v3.3 (urlContext)</div>
+<div class="version">v3.4 (urlContext)</div>
 
 <script>
 const KEY_API = 'rdc_gemini_api_key';
@@ -305,6 +305,15 @@ textのフォーマット（必ず1人前の分量に換算すること）:
 ・調味料名 分量
 （以下必要な分だけ）
 
+※レシピ中に(A)や(B)などのまとまりがある場合は、以下のようにグループ表示すること:
+＜調味料＞
+(A)
+・調味料名 分量
+・調味料名 分量
+(B)
+・調味料名 分量
+・調味料名 分量
+
 【調理過程】
 1. （手順を簡潔に）
 2. （手順を簡潔に）
@@ -371,15 +380,6 @@ async function sendToDiscord(webhookUrl, result) {
   for (let i = 0; i < chunks.length; i++) {
     const payload = { content: chunks[i] };
 
-    // 最初のメッセージにサムネイル画像を添付
-    if (i === 0 && result.thumbnail) {
-      payload.embeds = [{
-        image: {
-          url: result.thumbnail
-        }
-      }];
-    }
-
     const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -388,10 +388,25 @@ async function sendToDiscord(webhookUrl, result) {
 
     if (!res.ok) throw new Error(`Webhook ${res.status}`);
 
-    // レート制限を考慮して少し待機
     if (i < chunks.length - 1) {
       await new Promise(resolve => setTimeout(resolve, 500));
     }
+  }
+
+  // 最後にサムネイル画像を送信
+  if (result.thumbnail) {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    const imgPayload = {
+      embeds: [{
+        image: { url: result.thumbnail }
+      }]
+    };
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(imgPayload)
+    });
+    if (!res.ok) throw new Error(`Webhook画像送信 ${res.status}`);
   }
 }
 
