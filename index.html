@@ -186,7 +186,7 @@ input:focus { border-color: #aaa; background: #fff; }
   <div class="settings-saved" id="settings-saved">✓ 保存しました</div>
 </div>
 
-<div class="version">v2.1 (2.5-flash)</div>
+<div class="version">v2.2 (2.5-flash)</div>
 
 <script>
 const KEY_API = 'rdc_gemini_api_key';
@@ -245,7 +245,7 @@ async function runPipeline() {
   btn.disabled = true;
   resultBox.style.display = 'none';
   setDot(1, 'active'); setDot(2, ''); setDot(3, '');
-  showStatus('info', '① レシピを解析しています...');
+  showStatus('info', '① レシピページを取得・解析しています...');
   setDot(1, 'done'); setDot(2, 'active');
 
   let result;
@@ -276,15 +276,45 @@ async function runPipeline() {
   btn.disabled = false;
 }
 
-async function fetchAndFormat(url, apiKey) {
-  const prompt = `以下のレシピURLのページから情報を取得して、指定されたフォーマットで整形してください。
-URLにアクセスしてページの内容を取得し、レシピ情報を解析してください。
+async function fetchPageContent(url) {
+  // 直接取得を試み、CORS で失敗したらプロキシ経由
+  try {
+    const res = await fetch(url);
+    if (res.ok) return await res.text();
+  } catch (_) {}
+  const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+  const res = await fetch(proxyUrl);
+  if (!res.ok) throw new Error('ページの取得に失敗しました（CORS / プロキシエラー）');
+  return await res.text();
+}
 
-対象URL: ${url}
+function extractContent(html) {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  // og:image を取得
+  const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content') || null;
+  // 不要なタグを除去
+  doc.querySelectorAll('script, style, nav, footer, header, iframe, noscript').forEach(el => el.remove());
+  // テキストを抽出して空行を圧縮
+  const text = doc.body?.innerText || doc.body?.textContent || '';
+  const compressed = text.replace(/\n{3,}/g, '\n\n').trim();
+  // トークン節約のため先頭部分だけ使う
+  return { text: compressed.slice(0, 8000), ogImage };
+}
+
+async function fetchAndFormat(url, apiKey) {
+  // ページのHTMLを直接取得
+  const html = await fetchPageContent(url);
+  const page = extractContent(html);
+
+  const prompt = `以下はレシピページのHTMLから抽出したテキストです。この内容のみを使って、指定フォーマットで整形してください。
+
+--- ページ内容ここから ---
+${page.text}
+--- ページ内容ここまで ---
 
 以下の形式のJSONのみを返してください（説明文は不要）:
 {
-  "thumbnail": "ページのog:imageまたはメイン画像のURL（取得できない場合はnull）",
+  "thumbnail": "${page.ogImage || 'null'}",
   "text": "以下のフォーマットで整形したレシピテキスト"
 }
 
@@ -325,10 +355,7 @@ textのフォーマット（必ず1人前の分量に換算してください）
       generationConfig: {
         temperature: 0.3,
         maxOutputTokens: 2048
-      },
-      tools: [{
-        googleSearch: {}
-      }]
+      }
     })
   });
 
