@@ -186,7 +186,7 @@ input:focus { border-color: #aaa; background: #fff; }
   <div class="settings-saved" id="settings-saved">✓ 保存しました</div>
 </div>
 
-<div class="version">v3.2 (urlContext)</div>
+<div class="version">v3.3 (urlContext)</div>
 
 <script>
 const KEY_API = 'rdc_gemini_api_key';
@@ -340,26 +340,29 @@ textのフォーマット（必ず1人前の分量に換算すること）:
 
   const data = await res.json();
 
-  // Geminiのレスポンスから結果を取得
+  // Geminiのレスポンスから結果を取得（思考パートをスキップ）
   let resultText = '';
-  if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+  if (data.candidates?.[0]?.content?.parts) {
     for (const part of data.candidates[0].content.parts) {
-      if (part.text) {
-        resultText += part.text;
-      }
+      if (part.thought) continue; // 思考プロセスをスキップ
+      if (part.text) resultText += part.text;
     }
   }
 
   if (!resultText) throw new Error('解析結果が空でした。');
 
+  // JSONを抽出してパース
   try {
-    // JSONをパース
-    const parsed = JSON.parse(resultText.replace(/```json|```/g, '').trim());
-    return parsed;
-  } catch (e) {
-    // JSONパースに失敗した場合は、テキストのみを返す
-    return { text: resultText.trim(), thumbnail: null };
-  }
+    // ```json ... ``` ブロックがあればその中身を使う
+    const codeBlock = resultText.match(/```json\s*([\s\S]*?)```/);
+    const jsonStr = codeBlock ? codeBlock[1].trim() : resultText.trim();
+    // JSON部分を探す（{ から最後の } まで）
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+  } catch (_) {}
+
+  // パース失敗時はテキストとして返す
+  return { text: resultText.trim(), thumbnail: null };
 }
 
 async function sendToDiscord(webhookUrl, result) {
