@@ -70,6 +70,22 @@ input {
   -webkit-appearance: none;
 }
 input:focus { border-color: #aaa; background: #fff; }
+select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #e0e0dc;
+  border-radius: 10px;
+  font-size: 15px;
+  background: #fafaf8;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  cursor: pointer;
+}
+select:focus { border-color: #aaa; background-color: #fff; }
 .btn {
   width: 100%;
   padding: 14px;
@@ -167,6 +183,19 @@ input:focus { border-color: #aaa; background: #fff; }
   <div class="card">
     <label for="recipe-url">レシピURL</label>
     <input type="url" id="recipe-url" placeholder="https://www.kurashiru.com/recipes/..." autocomplete="off" />
+    <label for="servings">何人前？</label>
+    <select id="servings">
+      <option value="1" selected>1人前</option>
+      <option value="2">2人前</option>
+      <option value="3">3人前</option>
+      <option value="4">4人前</option>
+      <option value="5">5人前</option>
+      <option value="6">6人前</option>
+      <option value="7">7人前</option>
+      <option value="8">8人前</option>
+      <option value="9">9人前</option>
+      <option value="10">10人前</option>
+    </select>
     <button class="btn btn-primary" id="run-btn" onclick="runPipeline()">解析して送信する</button>
   </div>
   <div class="status" id="status-msg"></div>
@@ -234,6 +263,7 @@ function saveSettings() {
 
 async function runPipeline() {
   const recipeUrl = document.getElementById('recipe-url').value.trim();
+  const servings  = document.getElementById('servings').value;
   const apiKey    = localStorage.getItem(KEY_API);
   const webhook   = localStorage.getItem(KEY_WH);
   const btn       = document.getElementById('run-btn');
@@ -250,7 +280,7 @@ async function runPipeline() {
 
   let result;
   try {
-    result = await fetchAndFormat(recipeUrl, apiKey);
+    result = await fetchAndFormat(recipeUrl, apiKey, servings);
   } catch (e) {
     showStatus('error', '解析に失敗しました: ' + e.message);
     btn.disabled = false;
@@ -276,7 +306,8 @@ async function runPipeline() {
   btn.disabled = false;
 }
 
-async function fetchAndFormat(url, apiKey) {
+async function fetchAndFormat(url, apiKey, servings) {
+  const servingsLabel = servings == 1 ? '一人前' : `${servings}人前`;
   const prompt = `あなたはレシピ情報抽出APIです。以下のURLのレシピページを読み取り、JSON形式で返してください。
 
 【重要なルール】
@@ -289,11 +320,11 @@ async function fetchAndFormat(url, apiKey) {
 出力するJSON形式:
 {"thumbnail": "og:imageのURL or null", "text": "下記フォーマットのレシピテキスト"}
 
-textのフォーマット（必ず1人前の分量に換算すること）:
+textのフォーマット（必ず${servings}人前の分量に換算すること）:
 【名前】
 （レシピの料理名）
 
-【必要なもの（一人前）】
+【必要なもの（${servingsLabel}）】
 
 ＜食材＞
 ・食材名 分量
